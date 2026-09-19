@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <base target="_top">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>Fitness Journey to 70kg</title>
+
+    <!-- PWA WEB MANIFEST & APPLE APP TAGS -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#2c3e50">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Journey 70kg">
+    <link rel="apple-touch-icon" href="https://img.icons8.com/fluency/192/heart-beat.png">
+
+    <!-- CHART.JS -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- SERVICE WORKER REGISTRATION -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('sw.js')
+            .then(reg => console.log('Service Worker registered successfully!', reg))
+            .catch(err => console.error('Service Worker registration failed:', err));
+        });
+      }
+    </script>
+
+    <style>
+      body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #f0f3f5; color: #2c3e50; margin: 0; padding-bottom: 75px; }
+      .header { text-align: center; padding: 16px 12px; background: linear-gradient(135deg, #34495e, #2c3e50); color: white; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+      .header h2 { margin: 0; font-size: 20px; font-weight: 700; }
+      
+      .budget-banner { margin-top: 8px; padding: 12px; border-radius: 8px; font-size: 14px; text-align: center; line-height: 1.5; box-shadow: inset 0 1px 3px rgba(0,0,0,0.1); }
+      .alert-warning { background-color: #e67e22; color: white; }
+      .alert-safe { background-color: #27ae60; color: white; }
+      .alert-danger { background-color: #e74c3c; color: white; }
+      .advice-highlight { font-size: 18px; font-weight: 800; display: block; margin-top: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+      
+      .app-page { display: none; padding: 15px; }
+      .app-page.active { display: block; }
+      
+      .card { border-radius: 12px; padding: 16px; margin-bottom: 14px; box-shadow: 0 4px 10px rgba(0,0,0,0.04); border-left: 6px solid; background-color: white; }
+      .card-summary { border-left-color: #34495e; background: #ffffff; }
+      .card-food { border-left-color: #f39c12; }
+      .card-exercise { border-left-color: #3498db; background: #f4fafd; }
+      .card-sleep { border-left-color: #9b59b6; background: #faf5fc; }
+      .card-coffee { border-left-color: #6f4e37; background: #fcfaf8; }
+      .card-weight { border-left-color: #2ecc71; background: #f5fdf8; }
+      .card-energy { border-left-color: #00cec9; background: #f0fdfd; }
+      
+      label { display: block; font-weight: 700; font-size: 13px; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.3px; }
+      .card-food label { color: #d35400; }
+      .card-exercise label { color: #2980b9; }
+      .card-sleep label { color: #8e44ad; }
+      .card-coffee label { color: #5c3a21; }
+      .card-weight label { color: #27ae60; }
+      .card-energy label { color: #0097e6; }
+      
+      /* TODAY EDITABLE ROWS */
+      .today-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #edf2f7; font-size: 13px; }
+      .today-item:last-child { border-bottom: none; }
+      .today-item-title { font-weight: bold; color: #4a5568; }
+      .today-item-val { color: #718096; max-width: 170px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; }
+      .btn-edit-small { background: #edf2f7; border: 1px solid #cbd5e0; border-radius: 4px; padding: 4px 8px; font-size: 11px; font-weight: bold; cursor: pointer; color: #2d3748; }
+
+      .toggle-container { display: flex; gap: 6px; margin-bottom: 12px; }
+      .tab-item { flex: 1; padding: 10px; border: 1px solid #dcdde1; background: #f8f9fa; border-radius: 6px; font-weight: 700; font-size: 13px; cursor: pointer; text-align: center; color: #7f8c8d; }
+      .tab-item.food-active { background: #f39c12; color: white; border-color: #d35400; }
+      .tab-item.exercise-active { background: #3498db; color: white; border-color: #2980b9; }
+
+      .mode-select-box { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: #f8f9fa; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 12px; }
+      .mode-label { font-size: 13px; font-weight: 700; color: #4a5568; }
+      .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
+      .switch input { opacity: 0; width: 0; height: 0; }
+      .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #cbd5e0; transition: .3s; border-radius: 24px; }
+      .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 4px; bottom: 4px; background-color: white; transition: .3s; border-radius: 50%; }
+      input:checked + .slider { background-color: #e74c3c; }
+      input:checked + .slider:before { transform: translateX(20px); }
+
+      input[type="number"], textarea, input[type="text"] { width: 100%; padding: 11px; box-sizing: border-box; border: 1px solid #dcdde1; border-radius: 8px; font-size: 16px; }
+      .voice-input-container { display: flex; gap: 8px; align-items: center; }
+      .mic-btn { width: 44px; height: 44px; border-radius: 8px; border: 1px solid #dcdde1; background-color: #fff; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+      .mic-btn.recording { background-color: #e74c3c; color: white; animation: pulse 1.5s infinite; }
+      
+      .star-rating { display: flex; justify-content: space-between; direction: row; margin: 8px 0; }
+      .star-btn { font-size: 32px; background: none; border: none; cursor: pointer; color: #dcdde1; transition: transform 0.1s; padding: 4px; }
+      .star-btn.selected { color: #f1c40f; text-shadow: 0 0 4px rgba(241,196,15,0.4); }
+      .energy-desc { font-size: 12px; font-weight: bold; text-align: center; color: #7f8c8d; margin-top: 4px; }
+
+      .coffee-walk-controls { display: flex; align-items: center; justify-content: space-between; background: #fff; border: 1px solid #dcdde1; border-radius: 8px; padding: 10px; margin-bottom: 8px; }
+      .btn-circle { width: 40px; height: 40px; border-radius: 50%; border: none; background: #eaf2f8; font-size: 20px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+      
+      .progress-container { background-color: #e2e8f0; border-radius: 20px; height: 16px; width: 100%; margin: 8px 0 14px 0; overflow: hidden; }
+      .progress-bar { background: linear-gradient(135deg, #3498db, #2ecc71); height: 100%; width: 0%; transition: width 0.5s ease-in-out; }
+      
+      .roadmap-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-top: 12px; }
+      .roadmap-step { background: #f8f9fa; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 2px; text-align: center; font-size: 12px; font-weight: 700; color: #a0aec0; }
+      .roadmap-step.cleared { background: #e6fffa; border-color: #319795; color: #234e52; text-decoration: line-through; box-shadow: 0 2px 5px rgba(49,151,149,0.1); }
+
+      .submit-btn { width: 100%; padding: 16px; background: linear-gradient(135deg, #2ecc71, #27ae60); color: white; border: none; border-radius: 10px; font-size: 17px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 12px rgba(46, 204, 113, 0.3); }
+      #status { margin-top: 14px; text-align: center; font-weight: bold; font-size: 14px; color: #27ae60; }
+      .upload-wrapper { margin: 12px 0; background: #f8f9fa; border: 2px dashed #cbd5e0; padding: 14px; border-radius: 8px; text-align: center; }
+      .file-input-label { background: #4a5568; color: white; padding: 10px 16px; border-radius: 6px; font-size: 13px; font-weight: bold; cursor: pointer; display: inline-block; margin-top: 6px; }
+
+      /* MOSAIC PHOTO GRID STYLING */
+      .mosaic-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 8px; margin-bottom: 12px; }
+      .mosaic-item { position: relative; border-radius: 10px; overflow: hidden; aspect-ratio: 1 / 1; background: #e2e8f0; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.06); }
+      .mosaic-item img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.15s ease-out; }
+      .mosaic-item:active img { transform: scale(0.97); }
+      .mosaic-delete-btn { position: absolute; top: 6px; right: 6px; background: rgba(0,0,0,0.65); color: #fff; border: none; border-radius: 50%; width: 26px; height: 26px; font-size: 13px; font-weight: bold; line-height: 26px; text-align: center; cursor: pointer; z-index: 2; }
+      .mosaic-empty { grid-column: span 2; text-align: center; color: #a0aec0; padding: 32px 10px; font-size: 13px; font-weight: bold; border: 2px dashed #e2e8f0; border-radius: 10px; }
+
+      /* LIGHTBOX MODAL STYLING */
+      .lightbox-modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.9); z-index: 3000; justify-content: center; align-items: center; padding: 16px; box-sizing: border-box; backdrop-filter: blur(4px); }
+      .lightbox-modal.active { display: flex; }
+      .lightbox-img { max-width: 95%; max-height: 82vh; border-radius: 12px; box-shadow: 0 10px 35px rgba(0,0,0,0.6); object-fit: contain; }
+      .lightbox-close { position: absolute; top: 20px; right: 20px; background: rgba(255,255,255,0.25); color: white; border: none; border-radius: 50%; width: 38px; height: 38px; font-size: 22px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+
+      .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); z-index: 2000; justify-content: center; align-items: center; padding: 20px; backdrop-filter: blur(2px); }
+      .modal-overlay.active { display: flex; }
+      .modal-box { background: white; padding: 22px; border-radius: 16px; width: 340px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+      .modal-box h3 { margin-top: 0; color: #2c3e50; border-bottom: 2px solid #f1f2f6; padding-bottom: 10px; }
+      .preview-list { font-size: 15px; line-height: 1.6; max-height: 240px; overflow-y: auto; margin-bottom: 18px; background: #f8f9fa; padding: 12px; border-radius: 8px; }
+      .modal-actions { display: flex; gap: 8px; flex-direction: column; }
+      .modal-row { display: flex; gap: 8px; width: 100%; }
+      .modal-btn { flex: 1; padding: 13px; border: none; border-radius: 8px; font-size: 15px; font-weight: bold; cursor: pointer; }
+      .btn-cancel { background: #edf0f2; color: #4a5568; }
+      .btn-confirm { background: #27ae60; color: white; }
+      .btn-danger-reset { background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; font-size: 13px; padding: 10px; margin-top: 4px; }
+
+      .nav-bar { position: fixed; bottom: 0; left: 0; right: 0; height: 62px; background-color: white; border-top: 1px solid #edf0f2; display: flex; justify-content: space-around; align-items: center; z-index: 1000; box-shadow: 0 -4px 10px rgba(0,0,0,0.03); }
+      .nav-item { flex: 1; text-align: center; padding: 6px 0; cursor: pointer; color: #a4b0be; font-size: 10px; font-weight: 700; }
+      .nav-item.active { color: #27ae60; }
+      .nav-icon { font-size: 18px; display: block; margin-bottom: 2px; }
+      .chart-container { position: relative; height: 260px; width: 100%; }
+      @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+    </style>
+  </head>
+  <body>
+
+    <!-- LIGHTBOX ENLARGED PHOTO MODAL -->
+    <div id="lightboxModal" class="lightbox-modal" onclick="closeLightbox(event)">
+      <button type="button" class="lightbox-close" onclick="closeLightbox()">✕</button>
+      <img id="lightboxImg" class="lightbox-img" src="" alt="Enlarged Motivation" onclick="event.stopPropagation()">
+    </div>
+
+    <!-- SINGLE MEAL EDIT MODAL -->
+    <div id="editMealModal" class="modal-overlay">
+      <div class="modal-box">
+        <h3 id="editMealTitle">Edit Meal</h3>
+        <div class="form-group" style="margin-bottom:12px;">
+          <label id="editMealLabel">Description:</label>
+          <textarea id="editMealText" rows="3"></textarea>
+        </div>
+        <div class="form-group" style="margin-bottom:16px;">
+          <label>Calories (Leave blank for AI):</label>
+          <input type="number" id="editMealCals" inputmode="numeric">
+        </div>
+        <div class="modal-row">
+          <button type="button" class="modal-btn btn-cancel" onclick="closeEditModal()">Cancel</button>
+          <button type="button" class="modal-btn btn-confirm" onclick="saveSingleMealEdit()">Save Update</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- COFFEE WALK EDIT MODAL -->
+    <div id="editWalkModal" class="modal-overlay">
+      <div class="modal-box">
+        <h3>Edit Coffee Walks</h3>
+        <div class="form-group" style="margin-bottom:12px;">
+          <label>Number of Walks:</label>
+          <input type="number" id="editWalkCount" inputmode="numeric" min="0">
+        </div>
+        <div class="form-group" style="margin-bottom:16px;">
+          <label>Calories Burned (Exercise):</label>
+          <input type="number" id="editWalkBurn" inputmode="numeric">
+        </div>
+        <div class="modal-row">
+          <button type="button" class="modal-btn btn-cancel" onclick="closeEditWalkModal()">Cancel</button>
+          <button type="button" class="modal-btn btn-confirm" onclick="saveWalkEdit()">Save Update</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MAIN SAFETY VERIFICATION MODAL -->
+    <div id="safetyModal" class="modal-overlay">
+      <div class="modal-box">
+        <h3>Verify Entry Log</h3>
+        <div class="preview-list" id="previewList"></div>
+        <div class="modal-actions">
+          <div class="modal-row">
+            <button type="button" class="modal-btn btn-cancel" onclick="closeSafetyModal()">Edit</button>
+            <button type="button" class="modal-btn btn-confirm" onclick="executeCloudSync()">Confirm Sync</button>
+          </div>
+          <button type="button" class="modal-btn btn-danger-reset" onclick="triggerTodayReset()">🗑️ Wipe Today's Logs</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 1: LOG TAB -->
+    <div id="page-input" class="app-page active">
+      <div class="header">
+        <h2>Fitness Journey to 70kg</h2>
+        <div id="budgetAlert" class="budget-banner alert-warning">Checking metrics...</div>
+      </div>
+      <br>
+
+      <!-- AT-A-GLANCE TODAY OVERVIEW & QUICK EDIT CARD -->
+      <div class="card card-summary">
+        <label style="color:#2c3e50;">📋 Today's Entries & Quick Edit</label>
+        <div class="today-item">
+          <div>
+            <span class="today-item-title">Breakfast: </span>
+            <span class="today-item-val" id="dispBreakfast">None</span>
+          </div>
+          <button class="btn-edit-small" onclick="openEditModal('breakfast')">✏️ Edit</button>
+        </div>
+        <div class="today-item">
+          <div>
+            <span class="today-item-title">Lunch: </span>
+            <span class="today-item-val" id="dispLunch">None</span>
+          </div>
+          <button class="btn-edit-small" onclick="openEditModal('lunch')">✏️ Edit</button>
+        </div>
+        <div class="today-item">
+          <div>
+            <span class="today-item-title">Dinner: </span>
+            <span class="today-item-val" id="dispDinner">None</span>
+          </div>
+          <button class="btn-edit-small" onclick="openEditModal('dinner')">✏️ Edit</button>
+        </div>
+        <div class="today-item">
+          <div>
+            <span class="today-item-title">Coffee Walks: </span>
+            <span class="today-item-val" id="dispWalks">0 Walks (0 km)</span>
+          </div>
+          <button class="btn-edit-small" onclick="openEditWalkModal()">✏️ Edit</button>
+        </div>
+      </div>
+      
+      <div class="mode-select-box">
+        <span class="mode-label" id="modeText">✏️ Mode: Accumulate Entries</span>
+        <label class="switch">
+          <input type="checkbox" id="writeModeCheckbox" onchange="toggleWriteModeDisplay(this.checked)">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="card card-food">
+        <label>🍉 Add Food Item</label>
+        <div class="toggle-container">
+          <div id="tab-breakfast" class="tab-item food-active" onclick="setMealType('breakfast')">Breakfast</div>
+          <div id="tab-lunch" class="tab-item" onclick="setMealType('lunch')">Lunch</div>
+          <div id="tab-dinner" class="tab-item" onclick="setMealType('dinner')">Dinner</div>
+        </div>
+        <div class="form-group">
+          <textarea id="food" rows="2" placeholder="Type food details here..."></textarea>
+        </div>
+        <div class="form-group">
+          <input type="number" id="calories" inputmode="numeric" placeholder="Enter calories manually (or leave blank for AI)">
+        </div>
+      </div>
+
+      <!-- COFFEE WALK TRACKER MODULE -->
+      <div class="card card-exercise" style="border-left-color: #e67e22; background: #fffcf9;">
+        <label style="color: #d35400;">☕ Add Coffee Walk</label>
+        <div class="coffee-walk-controls">
+          <button type="button" class="btn-circle" onclick="modCoffeeWalks(-1)">-</button>
+          <span id="walkDisplay" style="font-size:22px; font-weight:bold; color:#d35400;">0 Walks</span>
+          <button type="button" class="btn-circle" onclick="modCoffeeWalks(1)">+</button>
+        </div>
+        <div style="font-size: 12px; font-weight: bold; color: #7f8c8d; margin-bottom: 8px;" id="walkAutoSummary">Distance: 0 km | Drink: 0 kcal</div>
+        <div class="form-group">
+          <input type="number" id="manualWalkBurn" inputmode="numeric" placeholder="Enter calories burned from walk manually">
+        </div>
+      </div>
+
+      <div class="card card-exercise">
+        <label>🏃 Regular Exercise & Workouts</label>
+        <div class="toggle-container">
+          <div id="tab-ex1" class="tab-item exercise-active" onclick="setExerciseSlot('Workout 1')">Workout 1</div>
+          <div id="tab-ex2" class="tab-item" onclick="setExerciseSlot('Workout 2')">Workout 2</div>
+          <div id="tab-ex3" class="tab-item" onclick="setExerciseSlot('Workout 3')">Workout 3</div>
+        </div>
+        <div class="form-group">
+          <input type="text" id="workoutDetails" placeholder="Type workout details / notes...">
+        </div>
+        <div class="form-group">
+          <input type="number" id="exercise" inputmode="numeric" value="0">
+          <span class="target-hint">Calories Burned for this workout (kcal)</span>
+        </div>
+      </div>
+
+      <!-- ENERGY LEVEL SELECTOR CARD -->
+      <div class="card card-energy">
+        <label>⚡ Daily Energy Level</label>
+        <div class="star-rating">
+          <button type="button" class="star-btn" id="star1" onclick="setEnergyRating(1)">★</button>
+          <button type="button" class="star-btn" id="star2" onclick="setEnergyRating(2)">★</button>
+          <button type="button" class="star-btn" id="star3" onclick="setEnergyRating(3)">★</button>
+          <button type="button" class="star-btn" id="star4" onclick="setEnergyRating(4)">★</button>
+          <button type="button" class="star-btn" id="star5" onclick="setEnergyRating(5)">★</button>
+        </div>
+        <div class="energy-desc" id="energyLabel">Tap a star to rate energy</div>
+      </div>
+
+      <div class="card card-sleep">
+        <label>🌙 Sleep Tracking</label>
+        <div class="form-group">
+          <input type="number" id="sleepHrs" step="0.5" inputmode="decimal" placeholder="Enter hours of sleep...">
+        </div>
+        <div class="form-group">
+          <span style="font-size:12px; font-weight:600; color:#8e44ad; display:block; margin-bottom:4px;">Sleep Quality:</span>
+          <div class="range-container">
+            <input type="range" id="sleepQual" min="1" max="10" value="5" oninput="trackSleepInteraction(this.value)">
+            <span class="range-val" id="sqVal">--</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card card-weight">
+        <label>⚖️ Weight & Voice Note</label>
+        <div class="form-group">
+          <input type="number" id="weight" step="0.1" inputmode="decimal" placeholder="Enter weight (kg) - Wed & Sun">
+        </div>
+        <div class="form-group">
+          <div class="voice-input-container">
+            <input type="text" id="notes" placeholder="Tap microphone to dictate reflections...">
+            <button type="button" class="mic-btn" id="micBtn" onclick="toggleVoiceDictation()">🎙️</button>
+          </div>
+        </div>
+      </div>
+
+      <button class="submit-btn" onclick="openSafetyModal()">Verify & Sync Entry</button>
+      <div id="status"></div>
+    </div>
+
+    <!-- TAB 2: CAFFEINE -->
+    <div id="page-caffeine" class="app-page">
+      <div class="header">
+        <h2>Caffeine & Coffee Tracker</h2>
+        <p>Monitor espresso logs and liquid calorie bounds</p>
+      </div>
+      <br>
+      <div class="card card-coffee">
+        <label>☕ Log Specific Caffeine Entry</label>
+        <div class="form-group">
+          <input type="text" id="caffeineType" placeholder="e.g., Iced Latte with sugar, Long black...">
+          <span class="target-hint">Drink description (Leave blank to let AI parse milk or sweeteners)</span>
+        </div>
+        <div class="form-group">
+          <label style="color:#5c3a21; margin-top:8px;">Estimated Liquid Calories</label>
+          <input type="number" id="caffeineCalories" inputmode="numeric" placeholder="Leave blank for AI lookup">
+        </div>
+        <div class="form-group">
+          <label style="color:#5c3a21;">Caffeine Strength (mg)</label>
+          <input type="number" id="caffeineMg" inputmode="numeric" placeholder="e.g., 80 for single shot, 150 for double espresso">
+        </div>
+      </div>
+      <button class="submit-btn" style="background: linear-gradient(135deg, #8a6d55, #5c3a21); box-shadow: 0 4px 12px rgba(111, 78, 55, 0.3);" onclick="openSafetyModalForCaffeine()">Sync Coffee Entry</button>
+    </div>
+
+    <!-- TAB 3: WEIGHT PROGRESS WITH ROADMAP (70 - 72 KG GOAL) -->
+    <div id="page-weight" class="app-page">
+      <div class="header">
+        <h2>Fitness Journey to 70–72kg</h2>
+        <div id="weightGoalAlert" class="budget-banner alert-safe" style="background-color: #2980b9; line-height: 1.6;">Calculating milestones...</div>
+      </div>
+      <br>
+      <div class="card" style="border-left-color: #2ecc71;">
+        <label style="color:#27ae60;">🏁 Weight Milestone Roadmap</label>
+        <div class="progress-container">
+          <div class="progress-bar" id="progressBarFill"></div>
+        </div>
+        <div id="progressPercentLabel" style="font-size: 12px; font-weight: bold; text-align: right; color:#2c3e50; margin-top:-8px;">0% Complete</div>
+        
+        <div class="roadmap-grid">
+          <div class="roadmap-step" id="step80">80 kg</div>
+          <div class="roadmap-step" id="step78">78 kg</div>
+          <div class="roadmap-step" id="step76">76 kg</div>
+          <div class="roadmap-step" id="step74">74 kg</div>
+          <div class="roadmap-step" id="step72">72 kg</div>
+        </div>
+        <div style="font-size: 11px; font-weight: bold; text-align: center; color: #7f8c8d; margin-top: 10px;">Target Range: 70.0 – 72.0 kg</div>
+      </div>
+      <div class="card" style="border-left-color: #2980b9;"><label>Weight Trend History vs 71kg Target Line</label><div class="chart-container"><canvas id="weightChart"></canvas></div></div>
+    </div>
+
+    <!-- TAB 4: CALORIES -->
+    <div id="page-calories" class="app-page">
+      <div class="header"><h2>Calorie Analysis</h2><p>Target Zone: 1,500 – 1,800 kcal</p></div><br>
+      <div class="card" style="border-left-color: #2ecc71;"><label>Past 7 Logged Days (kcal)</label><div class="chart-container"><canvas id="calorieChart"></canvas></div></div>
+    </div>
+
+    <!-- TAB 5: MY WHY (MOSAIC PHOTO GALLERY & LIGHTBOX ENLARGER) -->
+    <div id="page-motivation" class="app-page">
+      <div class="header">
+        <h2>My Core Motivation</h2>
+        <p>Your personal mosaic of reasons to stay consistent.</p>
+      </div>
+      <br>
+      <div class="card" style="border-left-color: #e74c3c;">
+        <label style="color: #c0392b;">📸 My Why Mosaic</label>
+        <span style="font-size:11px; color:#718096; display:block; margin-bottom:8px;">Tap any photo to expand. Tap ✕ on a photo to remove it.</span>
+        
+        <!-- DYNAMIC MOSAIC GRID -->
+        <div class="mosaic-grid" id="mosaicContainer">
+          <div class="mosaic-empty">No photos added yet.<br>Tap below to add photos from your camera roll.</div>
+        </div>
+
+        <div class="upload-wrapper">
+          <span style="font-size:12px; font-weight:bold; color:#4a5568; display:block;">Add to Your Motivation Mosaic:</span>
+          <input type="file" id="photoFilePicker" accept="image/*" multiple style="display:none;" onchange="executeMosaicUpload(this)">
+          <label for="photoFilePicker" class="file-input-label">📱 Add From Camera Roll</label>
+          <div id="uploadStatusText" style="font-size:11px; font-weight:bold; color:#4a5568; margin-top:6px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="nav-bar">
+      <div class="nav-item active" onclick="switchTab('page-input', this)"><span class="nav-icon">📝</span>Log</div>
+      <div class="nav-item" onclick="switchTab('page-caffeine', this)"><span class="nav-icon">☕</span>Caffeine</div>
+      <div class="nav-item" onclick="switchTab('page-weight', this); loadVisualCharts();"><span class="nav-icon">📉</span>Weight</div>
+      <div class="nav-item" onclick="switchTab('page-calories', this); loadVisualCharts();"><span class="nav-icon">📊</span>Calories</div>
+      <div class="nav-item" onclick="switchTab('page-motivation', this); renderMosaic();"><span class="nav-icon">❤️</span>My Why</div>
+    </div>
+
+    <script>
+      // =========================================================================
+      // ⚠️ CRITICAL CONFIGURATION: PASTE YOUR GOOGLE APPS SCRIPT WEB APP URL HERE:
+      // =========================================================================
+      const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyxwokUiqnxBl_6aNG3tZlRz1GGf7qJIgHH9hbrATbfYyDnz1Hg0UfI4aP5SJI-FdfpIA/exec";
+      
+      const keyStr = ""; 
+
+      let weightChartInstance = null; 
+      let calorieChartInstance = null;
+      let hasSleepQualInteracted = false; 
+      let recognition = null; 
+      let isRecording = false;
+      let currentMealType = 'breakfast'; 
+      let currentExerciseSlot = 'Workout 1'; 
+      let loggingMode = 'accumulate';
+      let activeEnergyRating = 0; 
+      let activeCoffeeWalks = 0;
+      let editingMealType = "";
+
+      window.onload = function() { 
+        updateDashboardAndSummary();
+        renderMosaic();
+      };
+
+      // =========================================================================
+      // REST API HELPER (Replaces google.script.run for Standalone PWA)
+      // =========================================================================
+      async function apiGet(action) {
+        try {
+          const res = await fetch(`${SCRIPT_URL}?action=${encodeURIComponent(action)}`);
+          return await res.json();
+        } catch (err) {
+          console.error("GET error:", err);
+          return null;
+        }
+      }
+
+      async function apiPost(action, payload) {
+        try {
+          const res = await fetch(SCRIPT_URL, {
+            method: "POST",
+            mode: "no-cors", // Required for cross-origin Apps Script execution
+            headers: { "Content-Type": "text/plain" },
+            body: JSON.stringify({ action: action, ...payload })
+          });
+          return { success: true };
+        } catch (err) {
+          console.error("POST error:", err);
+          return { success: false, error: err };
+        }
+      }
+
+      // =========================================================================
+      // DASHBOARD & SUMMARY FETCHING
+      // =========================================================================
+      async function updateDashboardAndSummary() {
+        const data = await apiGet('getTodayData');
+        if (!data) return;
+
+        var banner = document.getElementById('budgetAlert');
+        var totalCals = data.consumed || 0;
+        var totalBurned = data.burned || 0;
+        
+        var textOutput = "<b>Today's Calories: " + totalCals + " kcal</b><br>";
+        
+        if (totalCals < 1500) {
+          var short = 1500 - totalCals;
+          banner.className = "budget-banner alert-danger";
+          textOutput += "🛑 Status: UNDEREATING<br>";
+          textOutput += "🏃 Exercise Burned: " + totalBurned + " kcal<br>";
+          textOutput += "<span class='advice-highlight'>Advice: Eat another " + short + " kcal more</span>";
+        } else if (totalCals >= 1500 && totalCals <= 1800) {
+          banner.className = "budget-banner alert-safe";
+          textOutput += "🟢 Status: PERFECT (1,500–1,800 Target)<br>";
+          textOutput += "🏃 Exercise Burned: " + totalBurned + " kcal<br>";
+          textOutput += "<span class='advice-highlight'>Advice: Perfect balance!</span>";
+        } else if (totalCals > 1800 && totalCals <= 2200) {
+          banner.className = "budget-banner alert-warning";
+          textOutput += "🟡 Status: EATING ENOUGH<br>";
+          textOutput += "🏃 Exercise Burned: " + totalBurned + " kcal<br>";
+          textOutput += "<span class='advice-highlight'>Advice: Enough for the day</span>";
+        } else {
+          banner.className = "budget-banner alert-danger";
+          textOutput += "🚨 Status: OVEREATING<br>";
+          textOutput += "🏃 Exercise Burned: " + totalBurned + " kcal<br>";
+          textOutput += "<span class='advice-highlight'>Advice: Stop eating</span>";
+        }
+        banner.innerHTML = textOutput;
+
+        document.getElementById('dispBreakfast').innerText = data.breakfast || "None";
+        document.getElementById('dispLunch').innerText = data.lunch || "None";
+        document.getElementById('dispDinner').innerText = data.dinner || "None";
+        document.getElementById('dispWalks').innerText = (data.coffeeWalks || 0) + " Walk(s) [" + ((data.coffeeWalks || 0) * 4) + " km]";
+      }
+
+      // =========================================================================
+      // QUICK EDIT MEALS & COFFEE WALKS
+      // =========================================================================
+      function openEditModal(mealType) {
+        editingMealType = mealType;
+        document.getElementById('editMealTitle').innerText = "Edit " + mealType.toUpperCase();
+        document.getElementById('editMealLabel').innerText = mealType.toUpperCase() + " Description:";
+        var currentText = document.getElementById('disp' + mealType.charAt(0).toUpperCase() + mealType.slice(1)).innerText;
+        document.getElementById('editMealText').value = currentText === "None" ? "" : currentText;
+        document.getElementById('editMealCals').value = "";
+        document.getElementById('editMealModal').classList.add('active');
+      }
+      function closeEditModal() { document.getElementById('editMealModal').classList.remove('active'); }
+      
+      async function saveSingleMealEdit() {
+        var text = document.getElementById('editMealText').value;
+        var cals = document.getElementById('editMealCals').value;
+        closeEditModal();
+        var statusDiv = document.getElementById('status'); 
+        statusDiv.innerText = "Updating " + editingMealType + "...";
+        
+        await apiPost('updateMeal', { mealType: editingMealType, text: text, cals: cals, apiKey: keyStr });
+        statusDiv.innerText = "Meal updated!";
+        setTimeout(updateDashboardAndSummary, 1500);
+      }
+
+      function openEditWalkModal() {
+        document.getElementById('editWalkCount').value = "";
+        document.getElementById('editWalkBurn').value = "";
+        document.getElementById('editWalkModal').classList.add('active');
+      }
+      function closeEditWalkModal() { document.getElementById('editWalkModal').classList.remove('active'); }
+      
+      async function saveWalkEdit() {
+        var count = document.getElementById('editWalkCount').value;
+        var burn = document.getElementById('editWalkBurn').value;
+        closeEditWalkModal();
+        var statusDiv = document.getElementById('status'); 
+        statusDiv.innerText = "Updating coffee walks...";
+        
+        await apiPost('updateWalks', { count: count, burn: burn });
+        statusDiv.innerText = "Walks updated!";
+        setTimeout(updateDashboardAndSummary, 1500);
+      }
+
+      // =========================================================================
+      // FORM CONTROLS & SELECTIONS
+      // =========================================================================
+      function setEnergyRating(stars) {
+        activeEnergyRating = stars;
+        var labels = {1: "1/5 - Exhausted 😴", 2: "2/5 - Low Energy 📉", 3: "3/5 - Average 😐", 4: "4/5 - Good Energy 👍", 5: "5/5 - Excellent! ⚡"};
+        document.getElementById('energyLabel').innerText = labels[stars];
+        for (let i = 1; i <= 5; i++) {
+          document.getElementById('star' + i).classList.toggle('selected', i <= stars);
+        }
+      }
+
+      function modCoffeeWalks(val) {
+        activeCoffeeWalks = Math.max(0, activeCoffeeWalks + val);
+        document.getElementById('walkDisplay').innerText = activeCoffeeWalks + " Walk(s)";
+        var autoDist = activeCoffeeWalks * 4;
+        var autoCals = activeCoffeeWalks * 200;
+        document.getElementById('walkAutoSummary').innerText = "Distance: " + autoDist + " km | Drink Added: " + autoCals + " kcal";
+      }
+
+      function toggleWriteModeDisplay(isChecked) {
+        loggingMode = isChecked ? 'overwrite' : 'accumulate';
+        document.getElementById('modeText').innerText = isChecked ? '🚨 Mode: OVERWRITE / AMEND Logs' : '✏️ Mode: Accumulate Entries';
+      }
+      function setMealType(type) {
+        currentMealType = type;
+        document.querySelectorAll('.card-food .tab-item').forEach(t => t.classList.remove('food-active'));
+        document.getElementById('tab-' + type).classList.add('food-active');
+      }
+      function setExerciseSlot(slotName) {
+        currentExerciseSlot = slotName;
+        document.querySelectorAll('.card-exercise .tab-item').forEach(t => t.classList.remove('exercise-active'));
+        if(slotName === 'Workout 1') document.getElementById('tab-ex1').classList.add('exercise-active');
+        if(slotName === 'Workout 2') document.getElementById('tab-ex2').classList.add('exercise-active');
+        if(slotName === 'Workout 3') document.getElementById('tab-ex3').classList.add('exercise-active');
+      }
+
+      async function triggerTodayReset() {
+        if(confirm("Wipe today's entries back to zero?")) {
+          closeSafetyModal(); 
+          var statusDiv = document.getElementById('status'); 
+          statusDiv.style.color = "#dc2626"; 
+          statusDiv.innerText = "Clearing...";
+          
+          await apiPost('resetToday', {});
+          statusDiv.innerText = "Today's logs reset.";
+          setTimeout(updateDashboardAndSummary, 1500);
+        }
+      }
+
+      function trackSleepInteraction(val) { hasSleepQualInteracted = true; document.getElementById('sqVal').innerText = val; }
+      
+      function switchTab(pageId, navElement) {
+        document.querySelectorAll('.app-page').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+        document.getElementById(pageId).classList.add('active'); 
+        navElement.classList.add('active');
+      }
+
+      function toggleVoiceDictation() {
+        var micBtn = document.getElementById('micBtn'); var notesInput = document.getElementById('notes');
+        if (isRecording) { recognition.stop(); return; }
+        var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) { alert("Voice engine missing on this browser."); return; }
+        recognition = new SpeechRecognition(); 
+        recognition.continuous = false; 
+        recognition.lang = 'en-US';
+        recognition.onstart = function() { isRecording = true; micBtn.classList.add('recording'); micBtn.innerText = "🛑"; };
+        recognition.onerror = function() { stopRecordingState(); }; 
+        recognition.onend = function() { stopRecordingState(); };
+        recognition.onresult = function(event) { notesInput.value = notesInput.value ? notesInput.value + " " + event.results[0][0].transcript : event.results[0][0].transcript; };
+        recognition.start();
+      }
+      function stopRecordingState() { isRecording = false; var micBtn = document.getElementById('micBtn'); micBtn.classList.remove('recording'); micBtn.innerText = "🎙️"; }
+
+      // =========================================================================
+      // MOSAIC PHOTO STORAGE & LIGHTBOX ENGINE
+      // =========================================================================
+      function getStoredMosaicPhotos() {
+        try {
+          var data = localStorage.getItem('SAVED_MOSAIC_PHOTOS');
+          return data ? JSON.parse(data) : [];
+        } catch (e) {
+          return [];
+        }
+      }
+
+      function saveStoredMosaicPhotos(photos) {
+        try {
+          localStorage.setItem('SAVED_MOSAIC_PHOTOS', JSON.stringify(photos));
+        } catch (e) {
+          alert("Storage limit reached. Try deleting an older photo first.");
+        }
+      }
+
+      function renderMosaic() {
+        var photos = getStoredMosaicPhotos();
+        var container = document.getElementById('mosaicContainer');
+        if (!container) return;
+        
+        if (photos.length === 0) {
+          container.innerHTML = '<div class="mosaic-empty">No photos added yet.<br>Tap below to add photos from your camera roll.</div>';
+          return;
+        }
+
+        var html = '';
+        for (var i = 0; i < photos.length; i++) {
+          html += '<div class="mosaic-item" onclick="openLightbox(' + i + ')">';
+          html += '<button type="button" class="mosaic-delete-btn" onclick="deleteMosaicPhoto(' + i + ', event)">✕</button>';
+          html += '<img src="' + photos[i] + '" alt="Motivation Photo ' + (i+1) + '">';
+          html += '</div>';
+        }
+        container.innerHTML = html;
+      }
+
+      function openLightbox(index) {
+        var photos = getStoredMosaicPhotos();
+        if (photos[index]) {
+          document.getElementById('lightboxImg').src = photos[index];
+          document.getElementById('lightboxModal').classList.add('active');
+        }
+      }
+
+      function closeLightbox() {
+        document.getElementById('lightboxModal').classList.remove('active');
+      }
+
+      function deleteMosaicPhoto(index, event) {
+        if (event) event.stopPropagation();
+        if (confirm("Remove this photo from your mosaic?")) {
+          var photos = getStoredMosaicPhotos();
+          photos.splice(index, 1);
+          saveStoredMosaicPhotos(photos);
+          renderMosaic();
+        }
+      }
+
+      function executeMosaicUpload(inputElement) {
+        var files = inputElement.files;
+        if (!files || files.length === 0) return;
+
+        var statusLabel = document.getElementById('uploadStatusText');
+        statusLabel.innerText = "Optimizing photo(s)...";
+
+        var photos = getStoredMosaicPhotos();
+        var processedCount = 0;
+        var totalFiles = files.length;
+
+        Array.from(files).forEach(function(file) {
+          var reader = new FileReader();
+          reader.onload = function(e) {
+            var img = new Image();
+            img.onload = function() {
+              var canvas = document.createElement('canvas');
+              var maxDim = 800; // Limit dimensions to 800px max
+              var width = img.width;
+              var height = img.height;
+
+              if (width > height && width > maxDim) {
+                height = Math.round((height * maxDim) / width);
+                width = maxDim;
+              } else if (height > maxDim) {
+                width = Math.round((width * maxDim) / height);
+                height = maxDim;
+              }
+
+              canvas.width = width;
+              canvas.height = height;
+              var ctx = canvas.getContext('2d');
+              ctx.drawImage(img, 0, 0, width, height);
+
+              var compressedBase64 = canvas.toDataURL('image/jpeg', 0.80);
+              photos.unshift(compressedBase64); // Add newest photos first
+              processedCount++;
+
+              if (processedCount === totalFiles) {
+                saveStoredMosaicPhotos(photos);
+                renderMosaic();
+                statusLabel.innerText = "✅ " + totalFiles + " photo(s) added to mosaic!";
+                inputElement.value = "";
+              }
+            };
+            img.src = e.target.result;
+          };
+          reader.readAsDataURL(file);
+        });
+      }
+
+      // =========================================================================
+      // MAIN SYNC & SUBMISSION
+      // =========================================================================
+      function openSafetyModal() {
+        var food = document.getElementById('food').value; var calories = document.getElementById('calories').value;
+        var exercise = document.getElementById('exercise').value; var workout = document.getElementById('workoutDetails').value;
+        var sleepHrs = document.getElementById('sleepHrs').value; var weight = document.getElementById('weight').value; var notes = document.getElementById('notes').value;
+        var walkManualBurn = document.getElementById('manualWalkBurn').value;
+        var htmlSummary = "<span style='color:"+(loggingMode==='overwrite'?'#dc2626':'#2b6cb0')+"; font-weight:bold;'>MODE: " + loggingMode.toUpperCase() + "</span><br><hr style='border:1px solid #edf2f7;'>";
+        if (food) htmlSummary += "<b>" + currentMealType.toUpperCase() + ":</b> " + food + "<br>";
+        if (calories) htmlSummary += "<b>Entered Cals:</b> " + calories + " kcal<br>";
+        if (activeCoffeeWalks > 0) htmlSummary += "<b>☕ Coffee Walks:</b> " + activeCoffeeWalks + " Logged (+ " + (activeCoffeeWalks * 200) + " Consumed kcal)<br>";
+        if (walkManualBurn) htmlSummary += "<b>🔥 Walk Burn Input:</b> " + walkManualBurn + " kcal<br>";
+        if (parseFloat(exercise) > 0 || workout) htmlSummary += "<b>" + currentExerciseSlot.toUpperCase() + ":</b> " + (workout || "Active") + " (" + exercise + " kcal)<br>";
+        if (activeEnergyRating > 0) htmlSummary += "<b>⚡ Energy Rating:</b> " + activeEnergyRating + " / 5<br>";
+        if (sleepHrs) htmlSummary += "<b>Sleep Input:</b> " + sleepHrs + " Hours<br>";
+        if (weight) htmlSummary += "<b>Weight Verification:</b> " + weight + " kg<br>";
+        if (notes) htmlSummary += "<b>Reflection Notes:</b> " + notes + "<br>";
+        document.getElementById('previewList').innerHTML = htmlSummary;
+        document.getElementById('safetyModal').classList.add('active');
+      }
+
+      function openSafetyModalForCaffeine() {
+        var cType = document.getElementById('caffeineType').value; var cCals = document.getElementById('caffeineCalories').value; var cMg = document.getElementById('caffeineMg').value;
+        if(!cType) { alert("Please type description."); return; }
+        var htmlSummary = "<b>CAFFEINE ENTRY</b><br><hr style='border:1px solid #edf2f7;'>";
+        htmlSummary += "<b>Drink:</b> " + cType + "<br><b>Calories:</b> " + (cCals ? cCals + " kcal" : "<i>[AI Estimate]</i>") + "<br><b>Strength:</b> " + (cMg || "80") + " mg<br>";
+        document.getElementById('previewList').innerHTML = htmlSummary;
+        document.getElementById('safetyModal').classList.add('active');
+      }
+      function closeSafetyModal() { document.getElementById('safetyModal').classList.remove('active'); }
+
+      async function executeCloudSync() {
+        closeSafetyModal(); 
+        var statusDiv = document.getElementById('status'); 
+        statusDiv.style.color = "#34495e"; 
+        statusDiv.innerText = "Syncing metrics securely...";
+        
+        var baseCalories = document.getElementById('calories').value;
+        var walkDrinkCalories = activeCoffeeWalks * 200;
+
+        var payload = {
+          apiKey: keyStr, writeMode: loggingMode, mealType: currentMealType,
+          calories: baseCalories, food: document.getElementById('food').value,
+          caffeineType: document.getElementById('caffeineType').value, caffeineCalories: document.getElementById('caffeineCalories').value, caffeineMg: document.getElementById('caffeineMg').value,
+          exercise: document.getElementById('exercise').value, workoutDetails: document.getElementById('workoutDetails').value,
+          sleepHrs: document.getElementById('sleepHrs').value, sleepQual: document.getElementById('sleepQual').value, hasSleepQualInteracted: hasSleepQualInteracted,
+          weight: document.getElementById('weight').value, notes: document.getElementById('notes').value, coffee: 0,
+          energyRating: activeEnergyRating,
+          coffeeWalks: activeCoffeeWalks,
+          coffeeWalkCalories: document.getElementById('manualWalkBurn').value || 0
+        };
+        
+        if (walkDrinkCalories > 0 && !payload.caffeineType) {
+          payload.caffeineType = "Coffee Walk Beverage";
+          payload.caffeineCalories = walkDrinkCalories;
+          payload.caffeineMg = activeCoffeeWalks * 80;
+        }
+
+        await apiPost('appendLog', { payload: payload });
+        
+        statusDiv.style.color = "#27ae60"; 
+        statusDiv.innerText = "Data entry synced!";
+        document.getElementById('calories').value = ''; document.getElementById('food').value = '';
+        document.getElementById('exercise').value = '0'; document.getElementById('workoutDetails').value = '';
+        document.getElementById('caffeineType').value = ''; document.getElementById('caffeineCalories').value = ''; document.getElementById('caffeineMg').value = '';
+        document.getElementById('weight').value = ''; document.getElementById('notes').value = '';
+        document.getElementById('manualWalkBurn').value = '';
+        activeCoffeeWalks = 0; document.getElementById('walkDisplay').innerText = "0 Walks";
+        document.getElementById('walkAutoSummary').innerText = "Distance: 0 km | Drink: 0 kcal";
+        activeEnergyRating = 0; setEnergyRating(0); document.getElementById('energyLabel').innerText = "Tap a star to rate energy";
+        hasSleepQualInteracted = false; document.getElementById('sqVal').innerText = '--';
+        document.getElementById('writeModeCheckbox').checked = false; toggleWriteModeDisplay(false);
+        
+        setTimeout(updateDashboardAndSummary, 1500);
+      }
+
+      // =========================================================================
+      // CHARTS & TIMELINES
+      // =========================================================================
+      async function loadVisualCharts() {
+        const data = await apiGet('getChartData');
+        if (!data) return;
+
+        var targetWeight = 71; 
+        var startingWeight = 80;
+        var currentWeight = data.lastWeight || startingWeight;
+        
+        var totalDeltaNeeded = startingWeight - targetWeight;
+        var currentDeltaAchieved = startingWeight - currentWeight;
+        var completionPercentage = Math.min(100, Math.max(0, (currentDeltaAchieved / totalDeltaNeeded) * 100));
+        
+        document.getElementById('progressBarFill').style.width = completionPercentage + "%";
+        document.getElementById('progressPercentLabel').innerText = completionPercentage.toFixed(1) + "% Completed";
+        
+        document.getElementById('step80').classList.toggle('cleared', currentWeight <= 80);
+        document.getElementById('step78').classList.toggle('cleared', currentWeight <= 78);
+        document.getElementById('step76').classList.toggle('cleared', currentWeight <= 76);
+        document.getElementById('step74').classList.toggle('cleared', currentWeight <= 74);
+        document.getElementById('step72').classList.toggle('cleared', currentWeight <= 72);
+
+        var weightLeft = (currentWeight - targetWeight).toFixed(1);
+        var timeHorizonWeeks = 52; 
+        var weeklyRequiredVelocity = (weightLeft / timeHorizonWeeks).toFixed(2);
+
+        var weightAlert = document.getElementById('weightGoalAlert');
+        if (currentWeight > 72) {
+          weightAlert.innerHTML = "📉 Current: " + currentWeight + " kg (" + (currentWeight - 72).toFixed(1) + " kg to target boundary)<br><b>⚡ Required Velocity: " + weeklyRequiredVelocity + " kg / week</b>";
+        } else {
+          weightAlert.innerHTML = "🎉 Within Target Range (70–72 kg)! Currently at " + currentWeight + " kg.";
+        }
+
+        if(weightChartInstance) weightChartInstance.destroy();
+        var ctxW = document.getElementById('weightChart').getContext('2d');
+        var targetLineData = new Array(data.weightLabels.length).fill(targetWeight);
+
+        weightChartInstance = new Chart(ctxW, {
+          type: 'line',
+          data: { 
+            labels: data.weightLabels, 
+            datasets: [
+              { label: 'My Weight (kg)', data: data.weightValues, borderColor: '#2980b9', backgroundColor: 'rgba(41, 128, 185, 0.05)', tension: 0.1, fill: true },
+              { label: 'Target Zone Midpoint (71 kg)', data: targetLineData, borderColor: '#e74c3c', borderWidth: 2, borderDash: [6, 6], pointRadius: 0, fill: false }
+            ] 
+          },
+          options: { responsive: true, maintainAspectRatio: false }
+        });
+
+        if(calorieChartInstance) calorieChartInstance.destroy();
+        var ctxC = document.getElementById('calorieChart').getContext('2d');
+        calorieChartInstance = new Chart(ctxC, {
+          type: 'bar',
+          data: { labels: data.calorieLabels, datasets: [{ label: 'Calories', data: data.calorieValues, backgroundColor: data.calorieValues.map(val => (val > 1800 || val < 1500) ? '#e74c3c' : '#2ecc71') }] },
+          options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: false, min: 1000 } } }
+        });
+      }
+    </script>
+  </body>
+</html>
